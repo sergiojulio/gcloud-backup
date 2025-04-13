@@ -1,4 +1,5 @@
 import os, sys
+import datetime
 import requests
 from google.cloud import storage
 import io
@@ -14,7 +15,15 @@ load_dotenv(dotenv_path=dotenv_path)
 # Example usage:
 file_url = os.getenv('FILE_URL')
 bucket_name = os.getenv('BUCKET_NAME')
-destination_blob_name = os.getenv('DESTINATION_BLOB_NAME')
+
+now = datetime.datetime.now()
+day_name = now.strftime("%A")
+
+
+# gzip > /home/sergio/backups/database_`date +%a`.sql.gz
+destination_blob_name = 'database_' + day_name + '.sql.gz' #os.getenv('DESTINATION_BLOB_NAME')
+#destination_blob_name = os.getenv('DESTINATION_BLOB_NAME')
+
 # how will work this shit in gcp
 google_application_credentials = os.getenv('GOOGLE_APPLICATION_CREDENTIALS')
 google_project = os.getenv('GOOGLE_PROJECT')
@@ -45,10 +54,13 @@ def download_and_upload_large_file_to_gcs(url, bucket_name, destination_blob_nam
         print(f"Error uploading to GCS: {e}")
 
 
-# 
-
+def notification(message):
+    """Send a notification to a webhook or any other service."""
+    # Implement your notification logic here
+    # For example, you can use requests.post() to send a message to a webhook
+    print("Notification sent.")
 
 if __name__ == '__main__':
     # Example usage for large files:
-    print("Starting download and upload process for large files...")
+    print("Starting download and upload process for large files...") # put an hour for debuf propurses
     download_and_upload_large_file_to_gcs(file_url, bucket_name, destination_blob_name)
