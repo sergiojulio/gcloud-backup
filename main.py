@@ -15,6 +15,7 @@ load_dotenv(dotenv_path=dotenv_path)
 # Example usage:
 file_url = os.getenv('FILE_URL')
 bucket_name = os.getenv('BUCKET_NAME')
+topic = os.getenv('TOPIC')
 
 now = datetime.datetime.now()
 day_name = now.strftime("%A")
@@ -48,16 +49,20 @@ def download_and_upload_large_file_to_gcs(url, bucket_name, destination_blob_nam
 
         print(f"Large file {url} downloaded and uploaded to gs://{bucket_name}/{destination_blob_name}.")
 
+        notification()
+
     except requests.exceptions.RequestException as e:
         print(f"Error downloading file: {e}")
     except Exception as e:
         print(f"Error uploading to GCS: {e}")
 
 
-def notification(message):
+def notification():
     """Send a notification to a webhook or any other service."""
     # Implement your notification logic here
     # For example, you can use requests.post() to send a message to a webhook
+    requests.post("https://ntfy.sh/" + topic, 
+    data="Backup successful 😀".encode(encoding='utf-8'))
     print("Notification sent.")
 
 if __name__ == '__main__':
