@@ -1,9 +1,8 @@
-import os, sys
+import os
 import datetime
 import requests
+from fastapi import FastAPI
 from google.cloud import storage
-import io
-
 from pathlib import Path
 from dotenv import load_dotenv
 
@@ -12,25 +11,22 @@ dotenv_path = Path('.env/.venv')
 load_dotenv(dotenv_path=dotenv_path)
 
 
-# Example usage:
 file_url = os.getenv('FILE_URL')
 bucket_name = os.getenv('BUCKET_NAME')
 topic = os.getenv('TOPIC')
-
-now = datetime.datetime.now()
-day_name = now.strftime("%A")
-
-
-# gzip > /home/sergio/backups/database_`date +%a`.sql.gz
-destination_blob_name = 'database_' + day_name + '.sql.gz' #os.getenv('DESTINATION_BLOB_NAME')
-#destination_blob_name = os.getenv('DESTINATION_BLOB_NAME')
-
-# how will work this shit in gcp
-google_application_credentials = os.getenv('GOOGLE_APPLICATION_CREDENTIALS')
+template = os.getenv('DESTINATION_BLOB_NAME')
 google_project = os.getenv('GOOGLE_PROJECT')
 
+now = datetime.datetime.now()
 
-#Example for large files using chunks.
+day_name = now.strftime("%A")
+
+destination_blob_name = template.format(day_name=day_name)
+
+
+app = FastAPI()
+
+
 def download_and_upload_large_file_to_gcs(url, bucket_name, destination_blob_name, chunk_size=8192):
     """Downloads a potentially large file from a URL and uploads it to Google Cloud Storage using chunks."""
 
@@ -44,28 +40,34 @@ def download_and_upload_large_file_to_gcs(url, bucket_name, destination_blob_nam
 
         with blob.open("wb") as blob_file:
             for chunk in response.iter_content(chunk_size=chunk_size):
-                if chunk: # filter out keep-alive new chunks
+                if chunk:
                     blob_file.write(chunk)
+        # f"Large file {url} downloaded and uploaded to gs://{bucket_name}/{destination_blob_name}."
+        status = "Backup successful 😀"
 
-        print(f"Large file {url} downloaded and uploaded to gs://{bucket_name}/{destination_blob_name}.")
-
-        notification()
+        notification(status)
+        return status
 
     except requests.exceptions.RequestException as e:
-        print(f"Error downloading file: {e}")
+        # f"Error downloading file: {e}"
+        status = "Backup failed 😨"
+        notification(status)
+        return status
     except Exception as e:
-        print(f"Error uploading to GCS: {e}")
+        # f"Error uploading to GCS: {e}"
+        status = "Backup faliure 💀"
+        notification(status)
+        return status
 
 
-def notification():
-    """Send a notification to a webhook or any other service."""
-    # Implement your notification logic here
-    # For example, you can use requests.post() to send a message to a webhook
-    requests.post("https://ntfy.sh/" + topic, 
-    data="Backup successful 😀".encode(encoding='utf-8'))
-    print("Notification sent.")
 
-if __name__ == '__main__':
-    # Example usage for large files:
-    print("Starting download and upload process for large files...") # put an hour for debuf propurses
-    download_and_upload_large_file_to_gcs(file_url, bucket_name, destination_blob_name)
+def notification(message):
+    requests.post(url  = "https://ntfy.sh/" + topic, 
+                  data = message.encode(encoding='utf-8')
+                 )
+
+    
+@app.get("/")   
+async def root():
+    status = download_and_upload_large_file_to_gcs(file_url, bucket_name, destination_blob_name)
+    return {"message" : status}
